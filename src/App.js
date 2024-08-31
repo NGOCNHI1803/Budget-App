@@ -1,24 +1,29 @@
-import logo from './logo.svg';
-import './App.css';
+// src/App.js
+import React from 'react';
+import { Layout, theme } from 'antd';
+import { BrowserRouter as Router } from 'react-router-dom';
+import CustomHeader from './components/header';
+import CustomContent from './components/Content';
+import CustomSider from './components/Sider';
 
 function App() {
+  const {
+    token: { colorBgContainer, borderRadiusLG },
+  } = theme.useToken();
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <Layout style={{ minHeight: '100vh' }}>
+        <CustomSider colorBgContainer={colorBgContainer} />
+        <Layout>
+          <CustomHeader colorBgContainer={colorBgContainer} />
+          <CustomContent colorBgContainer={colorBgContainer} borderRadiusLG={borderRadiusLG} />
+          <Layout.Footer style={{ textAlign: 'center' }}>
+            Nhi Design ©{new Date().getFullYear()} Created by Ngoc Nhi
+          </Layout.Footer>
+        </Layout>
+      </Layout>
+    </Router>
   );
 }
 
