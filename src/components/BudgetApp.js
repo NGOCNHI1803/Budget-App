@@ -1,34 +1,43 @@
-// Budget.js
-import React from 'react';
-import BudgetTable from './BudgetBuilder';
-import months from './months'; // Ensure you have the months array defined in a file
-
-// Define the initial data for the budget
-const initialData = [
-  {
-    id: 1,
-    name: 'General Income',
-    category: 'income',
-    values: months.reduce((acc, month) => ({ ...acc, [month]: 0 }), {}),
-    subRows: [
-      { id: 1, name: 'Sales', values: months.reduce((acc, month) => ({ ...acc, [month]: 0 }), {}) },
-      { id: 2, name: 'Commission', values: months.reduce((acc, month) => ({ ...acc, [month]: 0 }), {}) },
-    ],
-  },
-  {
-    id: 2,
-    name: 'Operational Expenses',
-    category: 'expenses',
-    values: months.reduce((acc, month) => ({ ...acc, [month]: '' }), {}),
-    subRows: [],
-  },
-  // Add more categories and subcategories as needed
-];
+import React, { useState, useEffect } from 'react';
+import BudgetTable from './BudgetBuilder'; // Đảm bảo đường dẫn chính xác
+import useBudget from '../hooks/useBudget'; // Giả sử bạn có hook này cho các chức năng liên quan đến ngân sách
 
 const Budget = () => {
+  // State để lưu dữ liệu ngân sách ban đầu
+  const [initialData, setInitialData] = useState([]);
+
+  // Hook để lấy dữ liệu ngân sách từ nguồn bên ngoài (API, localStorage, v.v.)
+  useEffect(() => {
+    // Hàm giả lập để lấy dữ liệu ngân sách, thay thế bằng API call hoặc localStorage nếu cần
+    const fetchData = async () => {
+      // Giả sử bạn có dữ liệu mẫu hoặc gọi API để lấy dữ liệu thực tế
+      const data = [
+        {
+          id: '1',
+          name: 'Income',
+          subRows: [
+            { id: '1-1', name: 'General Income', values: { 'January 2024': '100', 'February 2024': '120' } },
+            { id: '1-2', name: 'Sales', values: { 'January 2024': '200', 'February 2024': '400' } },
+          ],
+        },
+        {
+          id: '2',
+          name: 'Expenses',
+          subRows: [
+            { id: '2-1', name: 'Operational Expenses', values: { 'January 2024': '50', 'February 2024': '100' } },
+            { id: '2-2', name: 'Management Fees', values: { 'January 2024': '100', 'February 2024': '200' } },
+          ],
+        },
+      ];
+      setInitialData(data);
+    };
+
+    fetchData();
+  }, []);
+
   return (
-    <div className="budget-container">
-      <h1>Budget Overview</h1>
+    <div className="budget-app">
+      <h1>Budget Management</h1>
       <BudgetTable initialData={initialData} />
     </div>
   );
