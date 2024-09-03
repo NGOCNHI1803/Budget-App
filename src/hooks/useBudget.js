@@ -1,216 +1,132 @@
-import { useState, useEffect, useCallback } from 'react';
-import months from '../components/months'; // Adjust the path accordingly
+import { useState, useMemo, useCallback } from 'react';
 
-const useBudget = (initialData) => {
-  const [rows, setRows] = useState(initialData);
-  const [contextMenu, setContextMenu] = useState({
-    visible: false,
-    x: 0,
-    y: 0,
-    cellData: null,
-  });
-  const [activeCell, setActiveCell] = useState({ rowId: null, month: months[0] });
-
-  // Set initial focus
-  useEffect(() => {
-    if (rows.length > 0) {
-      setActiveCell({ rowId: rows[0].id, month: months[0] });
-    }
-  }, [rows]);
-
-  const handleInputChange = (rowId, month, value) => {
-    setRows(prevRows =>
-      prevRows.map(row =>
-        row.id === rowId
-          ? { ...row, values: { ...row.values, [month]: parseFloat(value) || 0 } }
-          : row
-      )
-    );
-  };
-
-  const handleNameChange = (rowId, value) => {
-    setRows(prevRows =>
-      prevRows.map(row => (row.id === rowId ? { ...row, name: value } : row))
-    );
-  };
-
-  const handleSubRowNameChange = (rowId, subRowId, value) => {
-    setRows(prevRows =>
-      prevRows.map(row =>
-        row.id === rowId
-          ? {
-              ...row,
-              subRows: row.subRows.map(subRow =>
-                subRow.id === subRowId ? { ...subRow, name: value } : subRow
-              ),
-            }
-          : row
-      )
-    );
-  };
-
-  const addNewCategory = (category) => {
-    setRows(prevRows => [
-      ...prevRows,
-      {
-        id: Date.now(),
-        name: "New Category",
-        values: months.reduce((acc, month) => ({ ...acc, [month]: 0 }), {}),
-        subRows: [],
-        category,
-      },
+const useBudget = () => {
+    const [incomeCategories, setIncomeCategories] = useState([
+        {
+            parentName: 'General Income',
+            subCategories: [
+                { name: 'Sales', values: Array(12).fill(0) },
+                { name: 'Commission', values: Array(12).fill(0) },
+            ],
+        },
+        {
+            parentName: 'Other Income',
+            subCategories: [
+                { name: 'Training', values: Array(12).fill(0) },
+                { name: 'Consulting', values: Array(12).fill(0) },
+            ],
+        },
     ]);
-  };
 
-  const deleteRow = (rowId) => {
-    setRows(prevRows => prevRows.filter(row => row.id !== rowId && !row.subRows.some(sub => sub.id === rowId)));
-  };
+    const [expensesCategories, setExpensesCategories] = useState([
+        {
+            parentName: 'Operational Expenses',
+            subCategories: [
+                { name: 'Management Fees', values: Array(12).fill(0) },
+                { name: 'Cloud Hosting', values: Array(12).fill(0) },
+            ],
+        },
+        {
+            parentName: 'Salaries & Wages',
+            subCategories: [
+                { name: 'Full Time Dev Salaries', values: Array(12).fill(0) },
+                { name: 'Part Time Dev Salaries', values: Array(12).fill(0) },
+                { name: 'Remote Salaries', values: Array(12).fill(0) },
+            ],
+        },
+    ]);
 
-  const calculateTotalForCategory = (category, month) => {
-    return rows
-      .filter(row => row.category === category)
-      .reduce((total, row) => {
-        const rowTotal = parseFloat(row.values[month]) || 0;
-        const subRowTotal = row.subRows.reduce(
-          (subTotal, subRow) => subTotal + (parseFloat(subRow.values[month]) || 0),
-          0
-        );
-        return total + rowTotal + subRowTotal;
-      }, 0);
-  };
+    const months = useMemo(() => Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en', { month: 'short' })), []);
 
-  const calculateTotalIncome = (month) => calculateTotalForCategory("income", month);
-  const calculateTotalExpenses = (month) => calculateTotalForCategory("expenses", month);
+    const calculateSubCategoryTotal = useCallback((categories, parentIndex, monthIndex) => {
+        const subCategories = categories[parentIndex].subCategories;
+        return subCategories.reduce((acc, sub) => acc + sub.values[monthIndex], 0);
+    }, []);
 
-  const calculateProfit = (month) => {
-    const incomeTotals = calculateTotalIncome(month);
-    const expenseTotals = calculateTotalExpenses(month);
-    return incomeTotals - expenseTotals;
-  };
+    const calculateTotal = useCallback((categories, monthIndex) => {
+        return categories.reduce((acc, _, parentIndex) => acc + calculateSubCategoryTotal(categories, parentIndex, monthIndex), 0);
+    }, [calculateSubCategoryTotal]);
 
-  const calculateOpeningBalance = (month) => {
-    let openingBalance = 0;
-    for (let i = 0; i < months.indexOf(month); i++) {
-      const currentMonth = months[i];
-      const profit = calculateProfit(currentMonth);
-      openingBalance += profit;
-    }
-    return openingBalance;
-  };
+    const calculateProfit = useCallback((monthIndex) => {
+        const incomeTotal = calculateTotal(incomeCategories, monthIndex);
+        const expenseTotal = calculateTotal(expensesCategories, monthIndex);
+        return incomeTotal - expenseTotal;
+    }, [incomeCategories, expensesCategories, calculateTotal]);
 
-  const calculateClosingBalance = (month) => {
-    const openingBalance = calculateOpeningBalance(month);
-    const profit = calculateProfit(month);
-    return openingBalance + profit;
-  };
-
-  const handleContextMenu = (e, rowId, month) => {
-    e.preventDefault();
-    setContextMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY,
-      cellData: { rowId, month },
-    });
-  };
-
-  const handleApplyToAll = () => {
-    if (contextMenu.cellData) {
-      const { rowId, month } = contextMenu.cellData;
-      const cellValue = rows.find(row => row.id === rowId)?.values[month] || 0;
-      setRows(prevRows =>
-        prevRows.map(row =>
-          row.id === rowId
-            ? {
-                ...row,
-                values: Object.keys(row.values).reduce(
-                  (acc, m) => ({ ...acc, [m]: cellValue }),
-                  {}
-                ),
-              }
-            : row
-        )
-      );
-      setContextMenu({
-        ...contextMenu,
-        visible: false,
-      });
-    }
-  };
-
-  const handleKeyDown = useCallback((e) => {
-    const { rowId, month } = activeCell;
-    const rowIndex = rows.findIndex(row => row.id === rowId);
-    const monthIndex = months.indexOf(month);
-
-    switch (e.key) {
-      case 'Tab':
-        e.preventDefault();
-        if (monthIndex < months.length - 1) {
-          setActiveCell({ rowId, month: months[monthIndex + 1] });
-        } else if (rowIndex < rows.length - 1) {
-          setActiveCell({ rowId: rows[rowIndex + 1].id, month: months[0] });
+    const calculateOpeningBalance = useCallback((monthIndex) => {
+        let openingBalance = 0;
+        for (let i = 0; i < monthIndex; i++) {
+            openingBalance += calculateProfit(i);
         }
-        break;
-      case 'ArrowRight':
-        e.preventDefault();
-        if (monthIndex < months.length - 1) {
-          setActiveCell({ rowId, month: months[monthIndex + 1] });
-        }
-        break;
-      case 'ArrowLeft':
-        e.preventDefault();
-        if (monthIndex > 0) {
-          setActiveCell({ rowId, month: months[monthIndex - 1] });
-        }
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        if (rowIndex < rows.length - 1) {
-          setActiveCell({ rowId: rows[rowIndex + 1].id, month });
-        }
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        if (rowIndex > 0) {
-          setActiveCell({ rowId: rows[rowIndex - 1].id, month });
-        }
-        break;
-      default:
-        break;
-    }
-  }, [activeCell, rows]);
+        return openingBalance;
+    }, [calculateProfit]);
 
-  const handleClickOutside = useCallback(() => {
-    setContextMenu(prev => ({ ...prev, visible: false }));
-  }, []);
+    const calculateClosingBalance = useCallback((monthIndex) => {
+        const openingBalance = calculateOpeningBalance(monthIndex);
+        const profit = calculateProfit(monthIndex);
+        return openingBalance + profit;
+    }, [calculateOpeningBalance, calculateProfit]);
 
-  useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
+    const monthlyProfits = useMemo(() => months.map((_, i) => calculateProfit(i)), [calculateProfit, months]);
+    const monthlyOpeningBalances = useMemo(() => months.map((_, i) => calculateOpeningBalance(i)), [calculateOpeningBalance, months]);
+    const monthlyClosingBalances = useMemo(() => months.map((_, i) => calculateClosingBalance(i)), [calculateClosingBalance, months]);
+
+    const addSubCategory = (type, parentIndex, name) => {
+        if (type === 'income') {
+            const newIncome = [...incomeCategories];
+            newIncome[parentIndex].subCategories.push({ name, values: Array(12).fill(0) });
+            setIncomeCategories(newIncome);
+        } else {
+            const newExpenses = [...expensesCategories];
+            newExpenses[parentIndex].subCategories.push({ name, values: Array(12).fill(0) });
+            setExpensesCategories(newExpenses);
+        }
     };
-  }, [handleClickOutside, handleKeyDown]);
 
-  return {
-    rows,
-    contextMenu,
-    activeCell,
-    handleInputChange,
-    handleNameChange,
-    handleSubRowNameChange,
-    addNewCategory,
-    deleteRow,
-    calculateTotalIncome,
-    calculateTotalExpenses,
-    calculateProfit,
-    calculateOpeningBalance,
-    calculateClosingBalance,
-    handleContextMenu,
-    handleApplyToAll,
-  };
+    const addParentCategory = (type, name) => {
+        if (type === 'income') {
+            setIncomeCategories([...incomeCategories, { parentName: name, subCategories: [] }]);
+        } else {
+            setExpensesCategories([...expensesCategories, { parentName: name, subCategories: [] }]);
+        }
+    };
+
+    const updateValue = (type, parentIndex, subIndex, monthIndex, value) => {
+        if (type === 'income') {
+            const newIncome = [...incomeCategories];
+            newIncome[parentIndex].subCategories[subIndex].values[monthIndex] = parseFloat(value) || 0;
+            setIncomeCategories(newIncome);
+        } else {
+            const newExpenses = [...expensesCategories];
+            newExpenses[parentIndex].subCategories[subIndex].values[monthIndex] = parseFloat(value) || 0;
+            setExpensesCategories(newExpenses);
+        }
+    };
+
+    const applyToAllMonths = (type, parentIndex, subIndex, value) => {
+        if (type === 'income') {
+            const newIncome = [...incomeCategories];
+            newIncome[parentIndex].subCategories[subIndex].values.fill(parseFloat(value) || 0);
+            setIncomeCategories(newIncome);
+        } else {
+            const newExpenses = [...expensesCategories];
+            newExpenses[parentIndex].subCategories[subIndex].values.fill(parseFloat(value) || 0);
+            setExpensesCategories(newExpenses);
+        }
+    };
+
+    return {
+        incomeCategories,
+        expensesCategories,
+        addSubCategory,
+        addParentCategory,
+        updateValue,
+        applyToAllMonths,
+        calculateTotal,
+        monthlyProfits,
+        monthlyOpeningBalances,
+        monthlyClosingBalances,
+    };
 };
 
 export default useBudget;
