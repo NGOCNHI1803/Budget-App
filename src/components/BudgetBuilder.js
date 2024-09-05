@@ -10,12 +10,13 @@ const BudgetBuilder = () => {
     const {
         incomeCategories,
         expensesCategories,
-        openingBalance,
-        closingBalance,
         addSubCategory,
         addParentCategory,
         updateValue,
         applyToAllMonths,
+        
+        monthlyOpeningBalances,
+        monthlyClosingBalances,
     } = useBudget();
 
     const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -26,27 +27,25 @@ const BudgetBuilder = () => {
     const [currentValue, setCurrentValue] = useState('');
 
     const openModal = (type, parentIndex = null) => {
-      console.log('Opening modal:', type, parentIndex);
-      setCurrentAction({ type, parentIndex });
-      setModalIsOpen(true);
-  };
-  
-  const closeModal = () => {
-    
-      setModalIsOpen(false);
-      setNewCategoryName('');
-  };
-  
-  const handleAddCategory = () => {
-    console.log('Adding category:', currentAction, newCategoryName);
-      if (currentAction.type === 'addSubCategory') {
-          addSubCategory(currentAction.parentIndex.type, currentAction.parentIndex.index, newCategoryName);
-      } else if (currentAction.type === 'addParentCategory') {
-          addParentCategory(currentAction.parentIndex, newCategoryName);
-      }
-      closeModal();
-  };
-  
+        console.log('Opening modal:', type, parentIndex);
+        setCurrentAction({ type, parentIndex });
+        setModalIsOpen(true);
+    };
+
+    const closeModal = () => {
+        setModalIsOpen(false);
+        setNewCategoryName('');
+    };
+
+    const handleAddCategory = () => {
+        console.log('Adding category:', currentAction, newCategoryName);
+        if (currentAction.type === 'addSubCategory') {
+            addSubCategory(currentAction.parentIndex.type, currentAction.parentIndex.index, newCategoryName);
+        } else if (currentAction.type === 'addParentCategory') {
+            addParentCategory(currentAction.parentIndex, newCategoryName);
+        }
+        closeModal();
+    };
 
     const displayedMonths = useMemo(() => {
         return months.slice(startMonthIndex, endMonthIndex + 1);
@@ -56,7 +55,7 @@ const BudgetBuilder = () => {
         return displayedMonths.map((_, monthIndex) => {
             return categories.reduce((total, category) => {
                 return total + category.subCategories.reduce((subTotal, subCategory) => {
-                    return subTotal + parseFloat(subCategory.values[monthIndex] || 0);
+                    return subTotal + parseInt(subCategory.values[monthIndex] || 0, 10);
                 }, 0);
             }, 0);
         });
@@ -65,29 +64,26 @@ const BudgetBuilder = () => {
     const incomeTotals = useMemo(() => getMonthlyTotals(incomeCategories), [incomeCategories, getMonthlyTotals]);
     const expenseTotals = useMemo(() => getMonthlyTotals(expensesCategories), [expensesCategories, getMonthlyTotals]);
 
-    const openingBalanceTotals = useMemo(() => {
-        const defaultOpeningBalance = new Array(12).fill(0);
-        return (openingBalance?.values || defaultOpeningBalance).slice(startMonthIndex, endMonthIndex + 1);
-    }, [openingBalance, startMonthIndex, endMonthIndex]);
-
-    const closingBalanceTotals = useMemo(() => {
-        const defaultClosingBalance = new Array(12).fill(0);
-        return (closingBalance?.values || defaultClosingBalance).slice(startMonthIndex, endMonthIndex + 1);
-    }, [closingBalance, startMonthIndex, endMonthIndex]);
+    const getCategorySubtotals = useCallback((categories) => {
+        return categories.map((category) => {
+            return displayedMonths.map((_, monthIndex) => {
+                return category.subCategories.reduce((total, subCategory) => {
+                    return total + parseInt(subCategory.values[monthIndex] || 0, 10);
+                }, 0);
+            });
+        });
+    }, [displayedMonths]);
 
     const monthlyProfitLoss = useMemo(() => {
-        return incomeTotals.map((income, index) => {
-            const expenses = expenseTotals[index] || 0;
-            const openingBalance = openingBalanceTotals[index] || 0;
-            const closingBalance = closingBalanceTotals[index] || 0;
-            return income - expenses - openingBalance + closingBalance;
+        return displayedMonths.map((_, monthIndex) => {
+            const income = incomeTotals[monthIndex] || 0;
+            const expenses = expenseTotals[monthIndex] || 0;
+            return income - expenses;
         });
-    }, [incomeTotals, expenseTotals, openingBalanceTotals, closingBalanceTotals]);
+    }, [incomeTotals, expenseTotals, displayedMonths]);
 
     return (
         <div>
-            <h2>Budget Builder</h2>
-
             <div className="month-selection">
                 <label>
                     Start Month:
@@ -115,7 +111,7 @@ const BudgetBuilder = () => {
                 <table className="budget-table">
                     <thead>
                         <tr>
-                            <th>Category</th>
+                            <th>Start Period V End Period V</th>
                             {displayedMonths.map((month, index) => (
                                 <th key={index}>{month}</th>
                             ))}
@@ -126,8 +122,15 @@ const BudgetBuilder = () => {
                         {/* Income Categories */}
                         {incomeCategories.map((category, parentIndex) => (
                             <React.Fragment key={`income-${parentIndex}`}>
+                                 <tr>
+                                    <td colSpan={displayedMonths.length + 2}>
+                                        
+                                        Income
+                                    </td>
+                                </tr>
                                 <tr>
                                     <td colSpan={displayedMonths.length + 2}>
+                                        
                                         <strong>{category.parentName}</strong>
                                     </td>
                                 </tr>
@@ -156,16 +159,20 @@ const BudgetBuilder = () => {
                                         </td>
                                     </tr>
                                 ))}
-                                {/* Add New Subcategory Button */}
-                                {category.parentName === 'Commission' && (
-                                    <tr>
-                                        <td colSpan={displayedMonths.length + 2}>
-                                            <button onClick={() => openModal('addSubCategory', { type: 'income', index: parentIndex })}>
-                                                Add New Subcategory
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )}
+                                <tr>
+                                    <td>Sub Totals</td>
+                                    {getCategorySubtotals([category])[0].map((total, index) => (
+                                        <td key={index}>{total}</td>
+                                    ))}
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={displayedMonths.length + 2}>
+                                        <button onClick={() => openModal('addSubCategory', { type: 'income', index: parentIndex })}>
+                                            Add New Subcategory
+                                        </button>
+                                    </td>
+                                </tr>
                             </React.Fragment>
                         ))}
                         <tr>
@@ -178,7 +185,7 @@ const BudgetBuilder = () => {
                         <tr>
                             <td>Total Income</td>
                             {incomeTotals.map((total, index) => (
-                                <td key={index}>{total.toFixed(2)}</td>
+                                <td key={index}>{total}</td>
                             ))}
                             <td></td>
                         </tr>
@@ -216,16 +223,20 @@ const BudgetBuilder = () => {
                                         </td>
                                     </tr>
                                 ))}
-                                {/* Add New Subcategory Button */}
-                                {category.parentName === 'Remote Salaries' && (
-                                    <tr>
-                                        <td colSpan={displayedMonths.length + 2}>
-                                            <button onClick={() => openModal('addSubCategory', { type: 'expenses', index: parentIndex })}>
-                                                Add New Subcategory
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )}
+                                <tr>
+                                    <td colSpan={displayedMonths.length + 2}>
+                                        <button onClick={() => openModal('addSubCategory', { type: 'expenses', index: parentIndex })}>
+                                            Add New Subcategory
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Sub Totals</td>
+                                    {getCategorySubtotals([category])[0].map((total, index) => (
+                                        <td key={index}>{total}</td>
+                                    ))}
+                                    <td></td>
+                                </tr>
                             </React.Fragment>
                         ))}
                         <tr>
@@ -238,44 +249,43 @@ const BudgetBuilder = () => {
                         <tr>
                             <td>Total Expenses</td>
                             {expenseTotals.map((total, index) => (
-                                <td key={index}>{total.toFixed(2)}</td>
+                                <td key={index}>{total}</td>
                             ))}
                             <td></td>
                         </tr>
                     </tbody>
                     <tfoot>
                         <tr>
+                            <td>Profit/Loss</td>
+                            {monthlyProfitLoss.map((value, index) => (
+                                <td key={index}>{value}</td>
+                            ))}
+                            <td></td>
+                        </tr>
+                        <tr>
                             <td>Opening Balance</td>
-                            {openingBalanceTotals.map((balance, index) => (
-                                <td key={index}>{balance.toFixed(2)}</td>
+                            {monthlyOpeningBalances.map((value, index) => (
+                                <td key={index}>{value}</td>
                             ))}
                             <td></td>
                         </tr>
                         <tr>
                             <td>Closing Balance</td>
-                            {closingBalanceTotals.map((balance, index) => (
-                                <td key={index}>{balance.toFixed(2)}</td>
-                            ))}
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td>Profit/Loss</td>
-                            {monthlyProfitLoss.map((profitLoss, index) => (
-                                <td key={index}>{profitLoss.toFixed(2)}</td>
+                            {monthlyClosingBalances.map((value, index) => (
+                                <td key={index}>{value}</td>
                             ))}
                             <td></td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
-
             <Modal isOpen={modalIsOpen} onRequestClose={closeModal}>
-                <h2>{currentAction.type === 'addSubCategory' ? 'Add Subcategory' : 'Add Parent Category'}</h2>
+                <h2>{currentAction.type === 'addSubCategory' ? 'Add Sub-Category' : 'Add Parent Category'}</h2>
                 <input
                     type="text"
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="Category Name"
+                    placeholder="Category name"
                 />
                 <button onClick={handleAddCategory}>Add</button>
                 <button onClick={closeModal}>Cancel</button>
