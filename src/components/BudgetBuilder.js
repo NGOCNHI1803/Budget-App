@@ -53,13 +53,20 @@ const BudgetBuilder = () => {
 
     const getMonthlyTotals = useCallback((categories) => {
         return displayedMonths.map((_, monthIndex) => {
+            // Tính tổng cho mỗi tháng
             return categories.reduce((total, category) => {
-                return total + category.subCategories.reduce((subTotal, subCategory) => {
+                // Lấy giá trị của category chính
+                const parentValue = parseInt(category.values[monthIndex] || 0, 10);
+                // Tính tổng tất cả các giá trị của subcategories
+                const subCategoryTotal = category.subCategories.reduce((subTotal, subCategory) => {
                     return subTotal + parseInt(subCategory.values[monthIndex] || 0, 10);
                 }, 0);
+                // Cộng giá trị chính của category và tổng của subcategories
+                return total + parentValue + subCategoryTotal;
             }, 0);
         });
     }, [displayedMonths]);
+    
 
     const incomeTotals = useMemo(() => getMonthlyTotals(incomeCategories), [incomeCategories, getMonthlyTotals]);
     const expenseTotals = useMemo(() => getMonthlyTotals(expensesCategories), [expensesCategories, getMonthlyTotals]);
@@ -67,12 +74,18 @@ const BudgetBuilder = () => {
     const getCategorySubtotals = useCallback((categories) => {
         return categories.map((category) => {
             return displayedMonths.map((_, monthIndex) => {
-                return category.subCategories.reduce((total, subCategory) => {
+                // Include parent category value if applicable
+                const parentValue = parseInt(category.values[monthIndex] || 0, 10);
+                // Sum all subcategory values
+                const subCategoryTotal = category.subCategories.reduce((total, subCategory) => {
                     return total + parseInt(subCategory.values[monthIndex] || 0, 10);
                 }, 0);
+                // Return the combined total for this category (parent + subcategories)
+                return parentValue + subCategoryTotal;
             });
         });
     }, [displayedMonths]);
+    
 
     const monthlyProfitLoss = useMemo(() => {
         return displayedMonths.map((_, monthIndex) => {
@@ -120,19 +133,28 @@ const BudgetBuilder = () => {
                     </thead>
                     <tbody>
                         {/* Income Categories */}
-                        {incomeCategories.map((category, parentIndex) => (
-                            <React.Fragment key={`income-${parentIndex}`}>
-                                 <tr>
-                                    <td colSpan={displayedMonths.length + 2}>
+                        <tr>
+                                    <td colSpan={displayedMonths.length + 2} className='main-record'>
                                         
                                         Income
                                     </td>
                                 </tr>
-                                <tr>
-                                    <td colSpan={displayedMonths.length + 2}>
-                                        
-                                        <strong>{category.parentName}</strong>
-                                    </td>
+                        {incomeCategories.map((category, parentIndex) => (
+                            <React.Fragment key={`income-${parentIndex}`}>
+                                 
+                                 <tr>
+                                    <td className='parent-record'>{category.parentName}</td>
+                                    {category.values.slice(startMonthIndex, endMonthIndex + 1).map((value, monthIndex) => (
+                                        <td key={monthIndex}>
+                                            <input
+                                                type="number"
+                                                value={value}
+                                                onChange={(e) => updateValue('income', parentIndex, null, monthIndex, e.target.value)} 
+                                                // null passed for subIndex to indicate it's the parent category
+                                            />
+                                        </td>
+                                    ))}
+                                    <td></td>
                                 </tr>
                                 {category.subCategories.map((subCategory, subIndex) => (
                                     <tr key={`income-sub-${subIndex}`}>
@@ -160,7 +182,7 @@ const BudgetBuilder = () => {
                                     </tr>
                                 ))}
                                 <tr>
-                                    <td>Sub Totals</td>
+                                    <td className='sub-totals'>Sub Totals</td>
                                     {getCategorySubtotals([category])[0].map((total, index) => (
                                         <td key={index}>{total}</td>
                                     ))}
@@ -183,7 +205,7 @@ const BudgetBuilder = () => {
                             </td>
                         </tr>
                         <tr>
-                            <td>Total Income</td>
+                            <td className='totals'>Total Income</td>
                             {incomeTotals.map((total, index) => (
                                 <td key={index}>{total}</td>
                             ))}
@@ -191,12 +213,27 @@ const BudgetBuilder = () => {
                         </tr>
 
                         {/* Expenses Categories */}
+                        <tr>
+                                    <td colSpan={displayedMonths.length + 2} className='main-record'>
+                                        
+                                    Expenses
+                                    </td>
+                                </tr>
                         {expensesCategories.map((category, parentIndex) => (
                             <React.Fragment key={`expenses-${parentIndex}`}>
-                                <tr>
-                                    <td colSpan={displayedMonths.length + 2}>
-                                        <strong>{category.parentName}</strong>
-                                    </td>
+                               <tr>
+                                    <td className='parent-record'>{category.parentName}</td>
+                                    {category.values.slice(startMonthIndex, endMonthIndex + 1).map((value, monthIndex) => (
+                                        <td key={monthIndex}>
+                                            <input
+                                                type="number"
+                                                value={value}
+                                                onChange={(e) => updateValue('expenses', parentIndex, null, monthIndex, e.target.value)} 
+                                                // null passed for subIndex to indicate it's the parent category
+                                            />
+                                        </td>
+                                    ))}
+                                    <td></td>
                                 </tr>
                                 {category.subCategories.map((subCategory, subIndex) => (
                                     <tr key={`expenses-sub-${subIndex}`}>
@@ -231,7 +268,7 @@ const BudgetBuilder = () => {
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td>Sub Totals</td>
+                                    <td className='sub-totals'>Sub Totals</td>
                                     {getCategorySubtotals([category])[0].map((total, index) => (
                                         <td key={index}>{total}</td>
                                     ))}
@@ -247,7 +284,7 @@ const BudgetBuilder = () => {
                             </td>
                         </tr>
                         <tr>
-                            <td>Total Expenses</td>
+                            <td className='totals'>Total Expenses</td>
                             {expenseTotals.map((total, index) => (
                                 <td key={index}>{total}</td>
                             ))}
@@ -256,21 +293,21 @@ const BudgetBuilder = () => {
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td>Profit/Loss</td>
+                            <td className='summary'>Profit/Loss</td>
                             {monthlyProfitLoss.map((value, index) => (
                                 <td key={index}>{value}</td>
                             ))}
                             <td></td>
                         </tr>
                         <tr>
-                            <td>Opening Balance</td>
+                            <td className='summary'>Opening Balance</td>
                             {monthlyOpeningBalances.map((value, index) => (
                                 <td key={index}>{value}</td>
                             ))}
                             <td></td>
                         </tr>
                         <tr>
-                            <td>Closing Balance</td>
+                            <td className='summary'>Closing Balance</td>
                             {monthlyClosingBalances.map((value, index) => (
                                 <td key={index}>{value}</td>
                             ))}
@@ -279,7 +316,7 @@ const BudgetBuilder = () => {
                     </tfoot>
                 </table>
             </div>
-            <Modal isOpen={modalIsOpen} onRequestClose={closeModal}>
+            <Modal isOpen={modalIsOpen} onRequestClose={closeModal} >
                 <h2>{currentAction.type === 'addSubCategory' ? 'Add Sub-Category' : 'Add Parent Category'}</h2>
                 <input
                     type="text"

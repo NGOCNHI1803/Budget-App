@@ -4,6 +4,7 @@ const useBudget = () => {
     const [incomeCategories, setIncomeCategories] = useState([
         {
             parentName: 'General Income',
+            values: Array(12).fill(0), // Mảng chứa 12 giá trị cho parentCategory
             subCategories: [
                 { name: 'Sales', values: Array(12).fill(0) },
                 { name: 'Commission', values: Array(12).fill(0) },
@@ -11,16 +12,18 @@ const useBudget = () => {
         },
         {
             parentName: 'Other Income',
+            values: Array(12).fill(0), // Mảng chứa 12 giá trị cho parentCategory
             subCategories: [
                 { name: 'Training', values: Array(12).fill(0) },
                 { name: 'Consulting', values: Array(12).fill(0) },
             ],
         },
     ]);
-
+    
     const [expensesCategories, setExpensesCategories] = useState([
         {
             parentName: 'Operational Expenses',
+            values: Array(12).fill(0), // Mảng chứa 12 giá trị cho parentCategory
             subCategories: [
                 { name: 'Management Fees', values: Array(12).fill(0) },
                 { name: 'Cloud Hosting', values: Array(12).fill(0) },
@@ -28,6 +31,7 @@ const useBudget = () => {
         },
         {
             parentName: 'Salaries & Wages',
+            values: Array(12).fill(0), // Mảng chứa 12 giá trị cho parentCategory
             subCategories: [
                 { name: 'Full Time Dev Salaries', values: Array(12).fill(0) },
                 { name: 'Part Time Dev Salaries', values: Array(12).fill(0) },
@@ -35,17 +39,28 @@ const useBudget = () => {
             ],
         },
     ]);
+    
 
     const months = useMemo(() => Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en', { month: 'short' })), []);
 
     const calculateSubCategoryTotal = useCallback((categories, parentIndex, monthIndex) => {
-        const subCategories = categories[parentIndex].subCategories;
-        return subCategories.reduce((acc, sub) => acc + sub.values[monthIndex], 0);
+        const parentCategory = categories[parentIndex];
+    
+        // Bắt đầu với tổng là giá trị của parentName nếu có
+        let total = parentCategory.values ? parentCategory.values[monthIndex] : 0;
+    
+        // Cộng các giá trị từ subCategories
+        const subCategories = parentCategory.subCategories;
+        total += subCategories.reduce((acc, sub) => acc + sub.values[monthIndex], 0);
+    
+        return total;
     }, []);
+    
 
     const calculateTotal = useCallback((categories, monthIndex) => {
         return categories.reduce((acc, _, parentIndex) => acc + calculateSubCategoryTotal(categories, parentIndex, monthIndex), 0);
     }, [calculateSubCategoryTotal]);
+    
 
     const calculateProfit = useCallback((monthIndex) => {
         const incomeTotal = calculateTotal(incomeCategories, monthIndex);
@@ -92,17 +107,35 @@ const useBudget = () => {
     };
 
     const updateValue = (type, parentIndex, subIndex, monthIndex, value) => {
+        const parsedValue = parseFloat(value) || 0;
+    
         if (type === 'income') {
             const newIncome = [...incomeCategories];
-            newIncome[parentIndex].subCategories[subIndex].values[monthIndex] = parseFloat(value) || 0;
+    
+            if (subIndex !== null) {
+                // Cập nhật giá trị cho subCategory
+                newIncome[parentIndex].subCategories[subIndex].values[monthIndex] = parsedValue;
+            } else {
+                // Cập nhật giá trị cho parentCategory
+                newIncome[parentIndex].values[monthIndex] = parsedValue;
+            }
+    
             setIncomeCategories(newIncome);
         } else {
             const newExpenses = [...expensesCategories];
-            newExpenses[parentIndex].subCategories[subIndex].values[monthIndex] = parseFloat(value) || 0;
+    
+            if (subIndex !== null) {
+                // Cập nhật giá trị cho subCategory
+                newExpenses[parentIndex].subCategories[subIndex].values[monthIndex] = parsedValue;
+            } else {
+                // Cập nhật giá trị cho parentCategory
+                newExpenses[parentIndex].values[monthIndex] = parsedValue;
+            }
+    
             setExpensesCategories(newExpenses);
         }
     };
-
+    
     const applyToAllMonths = (type, parentIndex, subIndex, value) => {
         if (type === 'income') {
             const newIncome = [...incomeCategories];
